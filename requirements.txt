@@ -1,0 +1,26 @@
+# torch
+numpy==1.26.4
+# torchvision
+transformers==4.56.1
+huggingface-hub
+peft
+accelerate
+datasets
+scipy
+tqdm
+wandb
+pillow
+wrapt
+py-cpuinfo
+hjson
+scikit-learn
+scikit-image
+qwen_vl_utils
+ray
+timm
+sentencepiece
+opencv-python
+decord
+hnswlib
+einops
+deepspeed==0.17.6
