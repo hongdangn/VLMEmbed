@@ -1,10 +1,10 @@
 # torch
 numpy==1.26.4
 # torchvision
-transformers==4.56.1
+transformers==4.57.0
 huggingface-hub
 peft
-accelerate
+accelerate==1.10.1
 datasets
 scipy
 tqdm
