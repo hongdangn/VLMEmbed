@@ -168,7 +168,7 @@ class MMEBModel(nn.Module):
                 low_cpu_mem_usage=True,
             )
         elif model_backbone == LLAVA_ONEVISION:
-            config._attn_implementation = "flash_attention_2"
+            config._attn_implementation = None
             config.use_cache = False
             config.padding_side = "left"
             base_model = LlavaOnevisionForConditionalGeneration.from_pretrained(
@@ -285,8 +285,8 @@ class MMEBModel(nn.Module):
         print_master(f'Loading backbone [{model_args.model_backbone}] from {model_args.model_name}')
         if model_args.model_backbone in {LLAVA_ONEVISION, LLAVA_NEXT, QWEN2_VL, QWEN2_5_VL, QWEN2_VL_TOKENSELECTION, QWEN2_5_VL_TOKENSELECTION}:
             config = AutoConfig.from_pretrained(model_args.model_name, trust_remote_code=True)
-            config._attn_implementation = "flash_attention_2"
-            config.vision_config._attn_implementation = "flash_attention_2"
+            config._attn_implementation = None
+            config.vision_config._attn_implementation = None
             base_model = backbone2model[model_args.model_backbone].from_pretrained(
                 model_args.model_name,
                 torch_dtype=torch.bfloat16,

@@ -249,6 +249,7 @@ def unpad_image(tensor, original_size):
 
 class LlavaOnevisionModel(LlavaOnevisionPreTrainedModel):
     _checkpoint_conversion_mapping = {"language_model.model": "language_model"}
+    _supports_sdpa = True
 
     def __init__(self, config):
         super().__init__(config)
@@ -657,12 +658,14 @@ class LlavaOnevisionForConditionalGeneration(LlavaOnevisionPreTrainedModel, Gene
         "^language_model.lm_head": "lm_head",
     }
     _tied_weights_keys = ["lm_head.weight"]
+    _supports_sdpa = True
 
     def __init__(self, config: LlavaOnevisionConfig):
         super().__init__(config)
         self.model = LlavaOnevisionModel(config)
         self.lm_head = nn.Linear(config.text_config.hidden_size, config.text_config.vocab_size, bias=False)
         self.post_init()
+
 
     def get_input_embeddings(self):
         return self.model.get_input_embeddings()
