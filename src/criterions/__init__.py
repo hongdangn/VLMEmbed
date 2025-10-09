@@ -1,8 +1,8 @@
-from .contrastive_loss_with_RKD import ContrastiveLossWithRKD
+# from .contrastive_loss_with_RKD import ContrastiveLossWithRKD
 from .contrastive_loss import ContrastiveLoss
 
 criterion_list = {
-    "contrastive_rkd": ContrastiveLossWithRKD,
+    # "contrastive_rkd": ContrastiveLossWithRKD,
     "contrastive_loss": ContrastiveLoss
 }
 

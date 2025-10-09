@@ -314,7 +314,7 @@ def main():
 
     parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-    print(model_args.model_backbone)
+    print(data_args.subset_name)
     model_args: ModelArguments
     data_args: DataArguments
     training_args: TrainingArguments
