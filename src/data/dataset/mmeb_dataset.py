@@ -309,7 +309,10 @@ class EvalDataset(Dataset):
         full_img_path = os.path.join(self.data_args.image_dir, img_path)
         image = Image.open(full_img_path)
         if self.model_args.model_backbone != PHI3V and self.data_args.image_resolution:
-            return process_image(image, self.data_args.image_resolution)
+            img =  process_image(image, self.data_args.image_resolution)
+            setattr(img, "filename", full_img_path)
+            
+            return img
         else:
             return image
         return image

@@ -69,17 +69,9 @@ def time_block(name):
 
 
 def main():
-    for arg in sys.argv:
-        if arg.startswith("--local-rank="):
-            rank = arg.split("=")[1]
-            sys.argv.remove(arg)
-            sys.argv.append('--local_rank')
-            sys.argv.append(rank)
     parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-    model_args: ModelArguments
-    data_args: DataArguments
-    training_args: TrainingArguments
+
     os.makedirs(data_args.encode_output_path, exist_ok=True)
 
     hf_config = AutoConfig.from_pretrained(model_args.model_name, trust_remote_code=True)
@@ -205,32 +197,6 @@ def main():
             split=data_args.dataset_split,
         )
 
-        # for ColPali, pad only once for candidates
-        if model_args.model_backbone == COLPALI:
-            #  in case of ColPali, query_tensor/tgt_tensor have not been flattened
-            if len(qry_tensor) != len(qry_index):
-                qry_tensor = [t for l in qry_tensor for t in l.tolist()]
-                # qry_tensor = qry_tensor[:500]
-                # qry_index = qry_index[:500]
-            if len(tgt_tensor) != len(tgt_index):
-                tgt_tensor = [t for l in tgt_tensor for t in l.tolist()]
-                # tgt_tensor = tgt_tensor[:500]
-                # tgt_index = tgt_index[:500]
-
-            # Initialize mappings
-            tgtkey_to_rowid = {}
-            rowid_to_tgtkey = {}
-            for rowid, tt in enumerate(tgt_index):
-                key = (tt["text"], tt["img_path"])
-                tgtkey_to_rowid[key] = rowid
-                rowid_to_tgtkey[rowid] = key
-
-            # Convert each [n_token, dim] numpy array to tensor
-            tgt_tensor = [torch.from_numpy(np.array(t)) for t in tgt_tensor]  # list of [n_token, dim] tensors
-            # Pad to max n_token (dim must be the same)
-            tgt_tensor = pad_sequence(tgt_tensor, batch_first=True)  # shape: [num_candidates, max_n_token, dim]
-            tgt_tensor = tgt_tensor.to("cuda")
-
         # build a map for dedup
         qry_key2emb, tgt_key2emb = OrderedDict(), OrderedDict()
         for qry_t, tt in zip(qry_tensor, qry_index):
@@ -239,43 +205,28 @@ def main():
         for tgt_t, tt in zip(tgt_tensor, tgt_index):
             text, img_path = tt["text"], tt["img_path"]
             tgt_key2emb[(text, img_path)] = tgt_t
-        # print(f'tgt_tensor.shape = {tgt_tensor.shape}')
-        # print(f'len(tkey_to_rowid) = {len(tgtkey_to_rowid)}')
-        # print(f'len(rowid_to_tkey) = {len(rowid_to_tgtkey)}')
+
         print(f'len(tgt_key2emb) = {len(tgt_key2emb)}')
 
         n_correct = 0
         all_pred = []
         for row in tqdm(eval_data, desc=f"calculate score for {subset}"):
-            if model_args.model_backbone == COLPALI:
+            try:
                 qry_t = qry_key2emb[(row["qry_text"], row["qry_img_path"])]  # (dim,)
-                qry_t = torch.from_numpy(np.array([qry_t]))  # qry_t.shape=[1,len_q,dim], tgt_tensor.shape=[n_cand,len_cand,dim]
-                pos_tkey = (row['tgt_text'][0], row['tgt_img_path'][0])
-                print(pos_tkey in tgtkey_to_rowid)
-                print(pos_tkey in tgt_key2emb)
-                # with time_block("Scoring & prediction"):
-                scores = processor.score(qry_t, tgt_tensor, batch_size=1024)
-                pred_id = torch.argmax(scores, dim=1).cpu().numpy().tolist()[0]
-                pred_tkey = rowid_to_tgtkey[pred_id]
-                if pred_tkey == pos_tkey:
-                    n_correct += 1
-                all_pred.append(pred_tkey)
-            else:
-                try:
-                    qry_t = qry_key2emb[(row["qry_text"], row["qry_img_path"])]  # (dim,)
-                    tgt_t, all_candidates = [], []
-                except:
-                    import ipdb; ipdb.set_trace()
-                # with time_block("Target vector & candidate prep"):
-                for tt in zip(row["tgt_text"], row["tgt_img_path"]):
-                    tgt_t.append(tgt_key2emb[tt])
-                    all_candidates.append(tt)
-                qry_t = torch.from_numpy(np.array(qry_t))
-                tgt_t = np.stack(tgt_t, axis=0)  # (num_candidate, dim)
-                scores, pred = get_pred(qry_t, tgt_t, normalization=model_args.normalize)
-                if pred == 0:
-                    n_correct += 1
-                all_pred.append(all_candidates[pred])
+                tgt_t, all_candidates = [], []
+            except:
+                import ipdb; ipdb.set_trace()
+            # with time_block("Target vector & candidate prep"):
+            for tt in zip(row["tgt_text"], row["tgt_img_path"]):
+                tgt_t.append(tgt_key2emb[tt])
+                all_candidates.append(tt)
+            qry_t = torch.from_numpy(np.array(qry_t))
+            tgt_t = np.stack(tgt_t, axis=0)  # (num_candidate, dim)
+            scores, pred = get_pred(qry_t, tgt_t, normalization=model_args.normalize)
+            if pred == 0:
+                n_correct += 1
+            all_pred.append(all_candidates[pred])
+            
         score_path = os.path.join(data_args.encode_output_path, f"{subset}_score.json")
         print(f"\033[91m{subset} accuracy: {n_correct/len(eval_data)}\033[0m")
         score_dict = {"acc": n_correct/len(eval_data), "num_correct": n_correct, "num_pred": len(eval_data),
